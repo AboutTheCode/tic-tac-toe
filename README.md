@@ -1,3 +1,3 @@
-# First project on Petite Vue
+# The game "Tic Tac Toe"
 
-[![Petite Vue](http://img.youtube.com/vi/N_lDQdiKy2c/0.jpg)](https://www.youtube.com/watch?v=N_lDQdiKy2c "Petite Vue")
+[![Tic Tac Toe](http://img.youtube.com/vi/8ZDE4itHYoI/0.jpg)](https://www.youtube.com/watch?v=8ZDE4itHYoI "Tic Tac Toe")
