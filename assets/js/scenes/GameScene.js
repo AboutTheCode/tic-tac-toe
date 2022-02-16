@@ -1,10 +1,13 @@
 const CELL_EMPTY = 0;
 const CELL_X = 1;
 const CELL_O = 2;
+const CELL_TIE = 3;
 const CELL_SIZE = 150;
 
 const FILENAME_X = 'images/x.png';
 const FILENAME_O = 'images/o.png';
+
+const SERVER_URL = 'http://localhost:8080';
 
 class GameScene extends Scene {
   cells = [
@@ -13,33 +16,55 @@ class GameScene extends Scene {
     [CELL_EMPTY, CELL_EMPTY, CELL_EMPTY],
   ];
 
-  winStates = [
-    [0,1,2],
-    [3,4,5],
-    [6,7,8],
-    [0,3,6],
-    [1,4,7],
-    [2,5,8],
-    [0,4,8],
-    [2,4,6]
-  ];
+  gameId = null;
 
-  state = CELL_X;
+  turnKey = null;
 
   isActiveGame = true;
+
+  wonSide = null;
+
+  state = null;
 
   constructor({ DrawingContext, ResourceManager }) {
     super();
 
+    this.audios = [];
     this.drawingContext = DrawingContext;
     this.resourceManager = ResourceManager;
   }
 
   async loading() {
+    this.audios[CELL_X] = document.getElementById('audio_x');
+    this.audios[CELL_O] = document.getElementById('audio_o');
+
     await this.resourceManager.loadImages([
       FILENAME_X,
       FILENAME_O
     ]);
+
+    const url = new URL(window.location);
+    let serverUrl = 'http://localhost:8080';
+    if (url.searchParams.has('gameId')) {
+      serverUrl += `/?gameId=${url.searchParams.get('gameId')}`;
+    }
+    const source = new EventSource(serverUrl);
+    source.onmessage = ({ lastEventId, data }) => {
+      if (!this.gameId) {
+        url.searchParams.set('gameId', lastEventId);
+        window.history.pushState({ gameId: lastEventId }, '', url);
+      }
+      this.gameId = lastEventId;
+      const { cells, isActiveGame, turnKey, wonSide, state } = JSON.parse(data);
+      this.cells = cells;
+      this.isActiveGame = isActiveGame;
+      this.turnKey = turnKey;
+      this.wonSide = wonSide;
+      this.state = state;
+      if (this.isActiveGame) {
+        this.audios[state].play();
+      }
+    }
   }
 
   draw() {
@@ -78,6 +103,17 @@ class GameScene extends Scene {
         }
       }
     }
+
+    if (this.wonSide) {
+      let text = 'Ничья';
+      switch (this.wonSide) {
+      case CELL_X: text = 'Выиграли Крестики'; break;
+      case CELL_O: text = 'Выиграли Нолики'; break;
+      }
+      this.drawingContext.drawText(text, 0, CELL_SIZE * 3 + 20);
+    } else {
+      this.drawingContext.drawText((this.turnKey) ? 'Ваш черед хода' : 'Ожидайте хода соперника', 0, CELL_SIZE * 3 + 20);
+    }
   }
 
   click({ x, y }) {
@@ -90,26 +126,18 @@ class GameScene extends Scene {
       return;
     }
     const cellState = this.cells[rowIndex - 1][cellIndex - 1];
-    if (cellState !== CELL_EMPTY) {
+    if (cellState !== CELL_EMPTY || !this.turnKey) {
       return;
     }
-    this.cells[rowIndex - 1][cellIndex - 1] = this.state;
-    this.state = (this.state === CELL_X) ? CELL_O : CELL_X;
-
-    this.checkWinState();
-  }
-
-  checkWinState() {
-    const arr = this.cells.reduce((arr, item) => arr.concat(item), []);
-
-    for (const [c1, c2, c3] of this.winStates) {
-      if (arr[c1] === arr[c2] && arr[c2] === arr[c3] && arr[c1] === arr[c3] && arr[c1] !== CELL_EMPTY) {
-        this.isActiveGame = false;
-        return;
-      }
-    }
-    if (!arr.includes(CELL_EMPTY)) {
-      this.isActiveGame = false;
-    }
+    this.audios[this.state].play();
+    fetch(SERVER_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        row: rowIndex - 1,
+        cell: cellIndex - 1,
+        gameId: this.gameId,
+        turnKey: this.turnKey
+      })
+    });
   }
 }

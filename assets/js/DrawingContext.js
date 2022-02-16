@@ -41,4 +41,10 @@ class DrawingContext extends EventEmitter {
   drawImage(image, x, y, width, height) {
     this.ctx.drawImage(image, x, y, width, height);
   }
+
+  drawText(text, x, y) {
+    this.ctx.fillStyle = '#000';
+    this.ctx.font = '32px serif';
+    this.ctx.fillText(text, x, y);
+  }
 }
